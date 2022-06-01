@@ -65,8 +65,8 @@ type tcpPackager struct {
 func (mb *tcpPackager) Encode(pdu *ProtocolDataUnit) (adu []byte, err error) {
 	adu = make([]byte, tcpHeaderSize+1+len(pdu.Data))
 
-	// Transaction identifier
-	transactionId := atomic.AddUint32(&mb.transactionId, 1)
+	// Transaction identifier todo 暂时将这里改成0，后续有问题再回归
+	transactionId := atomic.AddUint32(&mb.transactionId, 0)
 	binary.BigEndian.PutUint16(adu, uint16(transactionId))
 	// Protocol identifier
 	binary.BigEndian.PutUint16(adu[2:], tcpProtocolIdentifier)
