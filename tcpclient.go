@@ -148,6 +148,7 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 
+	time.Sleep(time.Duration(30) * time.Millisecond)
 	// Establish a new connection if not connected
 	if err = mb.connect(); err != nil {
 		return
@@ -171,7 +172,6 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
                 }
 		return
 	}
-	time.Sleep(time.Duration(30) * time.Millisecond)
 	// Read header first
 	var data [tcpMaxLength]byte
 	if _, err = io.ReadFull(mb.conn, data[:tcpHeaderSize]); err != nil {
