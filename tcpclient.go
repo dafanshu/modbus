@@ -6,6 +6,7 @@ package modbus
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -24,6 +25,8 @@ const (
 	// Default TCP timeout is not set
 	tcpTimeout     = 10 * time.Second
 	tcpIdleTimeout = 60 * time.Second
+	// custom bit size
+	missedAddrSize = 0XEEEE
 )
 
 // TCPClientHandler implements Packager and Transporter interface.
@@ -148,7 +151,6 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
 	mb.mu.Lock()
 	defer mb.mu.Unlock()
 
-	time.Sleep(time.Duration(30) * time.Millisecond)
 	// Establish a new connection if not connected
 	if err = mb.connect(); err != nil {
 		return
@@ -184,6 +186,14 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
 		err = fmt.Errorf("modbus: length in response header '%v' must not be zero", length)
 		return
 	}
+	if missedAddrSize == length {
+		if all, e := io.ReadAll(mb.conn); e != nil {
+			mb.logf("read to end: %v", all)
+			//err = errors.New("read missed")
+			err = errors.New("missed")
+			return
+		}
+	}
 	if length > (tcpMaxLength - (tcpHeaderSize - 1)) {
 		mb.flush(data[:])
 		err = fmt.Errorf("modbus: length in response header '%v' must not greater than '%v'", length, tcpMaxLength-tcpHeaderSize+1)
@@ -196,6 +206,10 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
 	}
 	aduResponse = data[:length]
 	mb.logf("modbus: received % x\n", aduResponse)
+	if all, e := io.ReadAll(mb.conn); e != nil {
+		mb.logf("read to end: %v", all)
+		return
+	}
 	return
 }
 

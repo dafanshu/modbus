@@ -5,12 +5,14 @@
 package test
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/goburrow/modbus"
+	"github.com/dafanshu/modbus"
 )
 
 const (
@@ -43,4 +45,105 @@ func TestTCPClientAdvancedUsage(t *testing.T) {
 	if err != nil || results == nil {
 		t.Fatal(err, results)
 	}
+}
+
+
+func TestSend(t *testing.T) {
+	var wg sync.WaitGroup
+	handler := modbus.NewTCPClientHandler("192.168.1.168:502")
+	handler.Timeout = 30 * time.Millisecond
+	handler.SlaveId = 0x00
+	handler.Logger = log.New(os.Stdout, "test: ", log.LstdFlags)
+	// Connect manually so that multiple requests are handled in one connection session
+	err := handler.Connect()
+	defer handler.Close()
+
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	client := modbus.NewClient(handler)
+	index := 1
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go func() {
+			results, err := client.ReadCoils(96, 1)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println(results)
+			wg.Done()
+		}()
+		if index<2 {
+			wg.Add(1)
+			go func() {
+				results, err := client.ReadHoldingRegisters(0, 1)
+				if err != nil {
+					fmt.Println(err.Error())
+				}
+				fmt.Println(results)
+				wg.Done()
+				index++
+			}()
+		}
+		wg.Add(1)
+		go func() {
+			results, err := client.ReadHoldingRegisters(609, 1)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println(results)
+			wg.Done()
+		}()
+		wg.Add(1)
+		go func() {
+			results, err := client.ReadHoldingRegisters(555, 1)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println(results)
+			wg.Done()
+		}()
+		wg.Wait()
+	}
+
+}
+
+
+func TestBlankRegister(t *testing.T) {
+	var wg sync.WaitGroup
+	handler := modbus.NewTCPClientHandler("192.168.1.168:502")
+	handler.Timeout = 10 * time.Second
+	handler.SlaveId = 0x00
+	handler.Logger = log.New(os.Stdout, "test: ", log.LstdFlags)
+	// Connect manually so that multiple requests are handled in one connection session
+	err := handler.Connect()
+	defer handler.Close()
+
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	client := modbus.NewClient(handler)
+	wg.Add(1)
+	go func() {
+		// 693
+		results, err := client.ReadHoldingRegisters(0, 1)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		fmt.Println(results)
+		wg.Done()
+	}()
+	wg.Add(1)
+	go func() {
+		// 693
+		results, err := client.ReadHoldingRegisters(693, 1)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		fmt.Println(results)
+		wg.Done()
+	}()
+	wg.Wait()
 }
