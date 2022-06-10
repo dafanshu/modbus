@@ -124,9 +124,6 @@ func (mb *tcpPackager) Decode(adu []byte) (pdu *ProtocolDataUnit, err error) {
 	// The first byte after header is function code
 	pdu.FunctionCode = adu[tcpHeaderSize]
 	pdu.Data = adu[tcpHeaderSize+1:]
-	// only modbus tcp
-	transactionId := binary.BigEndian.Uint16(adu)
-	pdu.TransactionId = transactionId
 	return
 }
 
