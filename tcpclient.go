@@ -6,9 +6,7 @@ package modbus
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"sync"
@@ -86,13 +84,14 @@ func (mb *tcpPackager) Encode(pdu *ProtocolDataUnit) (adu []byte, err error) {
 
 // Verify confirms transaction, protocol and unit id.
 func (mb *tcpPackager) Verify(aduRequest []byte, aduResponse []byte) (err error) {
-	// Transaction id
+	// Transaction id todo : random response error
 	responseVal := binary.BigEndian.Uint16(aduResponse)
 	requestVal := binary.BigEndian.Uint16(aduRequest)
 	if responseVal != requestVal {
 		err = fmt.Errorf("modbus: response transaction id '%v' does not match request '%v'", responseVal, requestVal)
 		return
 	}
+
 	// Protocol id
 	responseVal = binary.BigEndian.Uint16(aduResponse[2:])
 	requestVal = binary.BigEndian.Uint16(aduRequest[2:])
@@ -125,6 +124,9 @@ func (mb *tcpPackager) Decode(adu []byte) (pdu *ProtocolDataUnit, err error) {
 	// The first byte after header is function code
 	pdu.FunctionCode = adu[tcpHeaderSize]
 	pdu.Data = adu[tcpHeaderSize+1:]
+	// only modbus tcp
+	transactionId := binary.BigEndian.Uint16(adu)
+	pdu.TransactionId = transactionId
 	return
 }
 
@@ -174,11 +176,10 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
                 }
 		return
 	}
-	// Read header first
+
 	var data [tcpMaxLength]byte
-	if _, err = io.ReadFull(mb.conn, data[:tcpHeaderSize]); err != nil {
-		return
-	}
+	// 提取当前报文所有内容
+	mb.conn.Read(data[:tcpMaxLength])
 	// Read length, ignore transaction & protocol id (4 bytes)
 	length := int(binary.BigEndian.Uint16(data[4:]))
 	if length <= 0 {
@@ -187,12 +188,9 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
 		return
 	}
 	if missedAddrSize == length {
-		if all, e := io.ReadAll(mb.conn); e != nil {
-			mb.logf("read to end: %v", all)
-			//err = errors.New("read missed")
-			err = errors.New("missed")
-			return
-		}
+		transactionId := binary.BigEndian.Uint16(data[0:2])
+		err = fmt.Errorf("modbus: missed address, transactionId '%v'", transactionId)
+		return
 	}
 	if length > (tcpMaxLength - (tcpHeaderSize - 1)) {
 		mb.flush(data[:])
@@ -201,15 +199,8 @@ func (mb *tcpTransporter) Send(aduRequest []byte) (aduResponse []byte, err error
 	}
 	// Skip unit id
 	length += tcpHeaderSize - 1
-	if _, err = io.ReadFull(mb.conn, data[tcpHeaderSize:length]); err != nil {
-		return
-	}
 	aduResponse = data[:length]
 	mb.logf("modbus: received % x\n", aduResponse)
-	if all, e := io.ReadAll(mb.conn); e != nil {
-		mb.logf("read to end: %v", all)
-		return
-	}
 	return
 }
 
@@ -260,8 +251,9 @@ func (mb *tcpTransporter) flush(b []byte) (err error) {
 		return
 	}
 	// Timeout setting will be reset when reading
-	if _, err = mb.conn.Read(b); err != nil {
+	if n, err := mb.conn.Read(b); err != nil {
 		// Ignore timeout error
+		fmt.Println(n)
 		if netError, ok := err.(net.Error); ok && netError.Timeout() {
 			err = nil
 		}

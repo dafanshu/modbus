@@ -6,6 +6,7 @@ package modbus
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net"
 	"testing"
@@ -66,6 +67,7 @@ func TestTCPTransporter(t *testing.T) {
 		_, err = io.Copy(conn, conn)
 		if err != nil {
 			t.Error(err)
+			fmt.Println(err.Error())
 			return
 		}
 	}()
@@ -114,6 +116,26 @@ func BenchmarkTCPDecoder(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+func TestClientTestAll(t *testing.T) {
+	client := &tcpTransporter{
+		Address:     "127.0.0.1:502",
+		Timeout:     30 * time.Millisecond,
+		IdleTimeout: 100 * time.Millisecond,
+	}
+	req := []byte{0x0b,0xb8,0x00,0x00,0x00,0x06,0x00,0x03,0x02,0x2b,0x00,0x02}
+	rsp, err := client.Send(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(req, rsp) {
+		t.Fatalf("unexpected response: %x", rsp)
+	}
+	time.Sleep(150 * time.Millisecond)
+	if client.conn != nil {
+		t.Fatalf("connection is not closed: %+v", client.conn)
 	}
 }
 

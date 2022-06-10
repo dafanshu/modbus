@@ -53,7 +53,7 @@ func TestSend(t *testing.T) {
 	handler := modbus.NewTCPClientHandler("192.168.1.168:502")
 	handler.Timeout = 30 * time.Millisecond
 	handler.SlaveId = 0x00
-	handler.Logger = log.New(os.Stdout, "test: ", log.LstdFlags)
+	//handler.Logger = log.New(os.Stdout, "test: ", log.LstdFlags)
 	// Connect manually so that multiple requests are handled in one connection session
 	err := handler.Connect()
 	defer handler.Close()
@@ -112,8 +112,8 @@ func TestSend(t *testing.T) {
 
 func TestBlankRegister(t *testing.T) {
 	var wg sync.WaitGroup
-	handler := modbus.NewTCPClientHandler("192.168.1.168:502")
-	handler.Timeout = 10 * time.Second
+	handler := modbus.NewTCPClientHandler("127.0.0.1:503")
+	handler.Timeout = 30 * time.Millisecond
 	handler.SlaveId = 0x00
 	handler.Logger = log.New(os.Stdout, "test: ", log.LstdFlags)
 	// Connect manually so that multiple requests are handled in one connection session
@@ -128,7 +128,7 @@ func TestBlankRegister(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		// 693
-		results, err := client.ReadHoldingRegisters(0, 1)
+		results, err := client.ReadHoldingRegisters(693, 3)
 		if err != nil {
 			fmt.Println(err.Error())
 		}
@@ -138,7 +138,7 @@ func TestBlankRegister(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		// 693
-		results, err := client.ReadHoldingRegisters(693, 1)
+		results, err := client.ReadHoldingRegisters(693, 2)
 		if err != nil {
 			fmt.Println(err.Error())
 		}
